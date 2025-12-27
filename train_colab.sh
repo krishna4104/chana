@@ -37,7 +37,7 @@ fi
 # Extract dataset
 echo "[3/6] Extracting dataset..."
 if [ ! -d "/content/dataset" ]; then
-    unzip -q /content/dataset.zip -d /content/
+    unzip -q -o /content/dataset.zip -d /content/
 
     # Handle different extracted folder names
     if [ -d "/content/filtered_dataset" ]; then
