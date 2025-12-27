@@ -1,12 +1,21 @@
 #!/bin/bash
 # One-click training script for Google Colab
-# Usage: !bash train_colab.sh <gdrive_file_id> [yolov8|rfdetr]
-# Example: !bash train_colab.sh 1MFjRPb70EpCg5YgGTqBvS_2b_sapOGPY yolov8
+# Usage: !bash train_colab.sh [gdrive_url_or_id] [yolov8|rfdetr]
+# Example: !bash train_colab.sh "https://drive.google.com/file/d/1MFjRPb70EpCg5YgGTqBvS_2b_sapOGPY/view?usp=sharing" yolov8
+# Or:      !bash train_colab.sh 1MFjRPb70EpCg5YgGTqBvS_2b_sapOGPY yolov8
+# Or:      !bash train_colab.sh  (uses default dataset)
 
 set -e
 
-GDRIVE_ID=${1:-"1MFjRPb70EpCg5YgGTqBvS_2b_sapOGPY"}
+INPUT=${1:-"1MFjRPb70EpCg5YgGTqBvS_2b_sapOGPY"}
 MODEL=${2:-yolov8}
+
+# Extract file ID from URL if full URL provided
+if [[ "$INPUT" == *"drive.google.com"* ]]; then
+    GDRIVE_ID=$(echo "$INPUT" | sed -n 's/.*\/d\/\([^\/]*\).*/\1/p')
+else
+    GDRIVE_ID="$INPUT"
+fi
 
 echo "=============================================="
 echo "CHANA CLASSIFIER - $MODEL TRAINING"
