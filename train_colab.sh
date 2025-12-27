@@ -115,16 +115,52 @@ mkdir -p /content/drive/MyDrive/chana_models
 echo "[6/6] Starting training..."
 if [ "$MODEL" == "yolov8" ]; then
     python3 << 'PYTHON_SCRIPT'
+import torch
 from ultralytics import YOLO
 
-model = YOLO('yolov8n.pt')
+# Auto-detect GPU and set optimal parameters
+gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
+print(f"Detected GPU: {gpu_name}")
+
+# GPU-specific configurations
+# Format: (model, batch, imgsz, epochs, workers, cache, patience)
+GPU_CONFIGS = {
+    "1650": ("yolov8n.pt", 16, 512, 50, 4, "disk", 15),      # 4GB VRAM - conservative
+    "3050": ("yolov8n.pt", 32, 512, 50, 4, "disk", 15),      # 4GB VRAM - conservative
+    "T4":   ("yolov8n.pt", 64, 512, 50, 8, "ram", 10),       # 16GB VRAM - balanced
+    "L4":   ("yolov8s.pt", 128, 640, 100, 12, "ram", 15),    # 24GB VRAM - high performance
+    "L40":  ("yolov8s.pt", 128, 640, 100, 12, "ram", 15),    # 48GB VRAM - high performance
+    "A100": ("yolov8m.pt", 256, 640, 100, 16, "ram", 15),    # 40/80GB VRAM - maximum
+    "V100": ("yolov8s.pt", 64, 640, 100, 8, "ram", 15),      # 16/32GB VRAM
+}
+
+# Match GPU name to config
+config = None
+for key in GPU_CONFIGS:
+    if key.lower() in gpu_name.lower():
+        config = GPU_CONFIGS[key]
+        print(f"Using optimized settings for: {key}")
+        break
+
+# Default config if GPU not recognized
+if config is None:
+    print("GPU not recognized, using default settings")
+    config = ("yolov8n.pt", 32, 512, 50, 4, "disk", 15)
+
+model_weights, batch, imgsz, epochs, workers, cache, patience = config
+
+print(f"Config: model={model_weights}, batch={batch}, imgsz={imgsz}, epochs={epochs}")
+print(f"        workers={workers}, cache={cache}, patience={patience}")
+
+model = YOLO(model_weights)
 results = model.train(
     data='/content/data.yaml',
-    epochs=50,           # Reduced - early stopping will kick in anyway
-    batch=64,            # Increased for faster training on T4
-    imgsz=512,           # Slightly smaller for speed, still good quality
+    epochs=epochs,
+    batch=batch,
+    imgsz=imgsz,
     optimizer='AdamW',
-    lr0=0.002,           # Slightly higher LR for faster convergence
+    lr0=0.001,
+    lrf=0.01,
     degrees=180,
     flipud=0.5,
     fliplr=0.5,
@@ -132,22 +168,25 @@ results = model.train(
     hsv_v=0.4,
     mosaic=1.0,
     mixup=0.1,
-    close_mosaic=5,      # Disable mosaic earlier
+    close_mosaic=10,
     device=0,
-    workers=8,           # More workers for faster data loading
+    workers=workers,
     amp=True,
-    cache='ram',         # Cache images in RAM for faster loading
+    cache=cache,
     project='/content/drive/MyDrive/chana_models',
-    name='yolov8n_chana',
-    patience=10,         # Stop earlier if no improvement
+    name=f'yolov8_chana_{gpu_name.replace(" ", "_")}',
+    patience=patience,
     plots=True,
+    cos_lr=True,
 )
 
 # Evaluate
 print("\n" + "="*50)
 print("EVALUATING ON TEST SET")
 print("="*50)
-best = YOLO('/content/drive/MyDrive/chana_models/yolov8n_chana/weights/best.pt')
+import glob
+best_path = glob.glob('/content/drive/MyDrive/chana_models/yolov8_chana_*/weights/best.pt')[-1]
+best = YOLO(best_path)
 results = best.val(data='/content/data.yaml', split='test')
 print(f"\nmAP50: {results.box.map50:.4f}")
 print(f"mAP50-95: {results.box.map:.4f}")
