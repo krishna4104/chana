@@ -1,51 +1,79 @@
 #!/bin/bash
 # One-click training script for Google Colab
-# Usage: !bash train_colab.sh yolov8  OR  !bash train_colab.sh rfdetr
+# Usage: !bash train_colab.sh <gdrive_file_id> [yolov8|rfdetr]
+# Example: !bash train_colab.sh 1MFjRPb70EpCg5YgGTqBvS_2b_sapOGPY yolov8
 
 set -e
 
-MODEL=${1:-yolov8}
-DATASET_URL=${2:-""}
+GDRIVE_ID=${1:-"1MFjRPb70EpCg5YgGTqBvS_2b_sapOGPY"}
+MODEL=${2:-yolov8}
 
 echo "=============================================="
 echo "CHANA CLASSIFIER - $MODEL TRAINING"
+echo "Dataset ID: $GDRIVE_ID"
 echo "=============================================="
 
 # Install dependencies
-echo "[1/5] Installing dependencies..."
+echo "[1/6] Installing dependencies..."
 pip install -q ultralytics rfdetr pycocotools gdown
 
-# Check if dataset exists or download
-if [ ! -d "/content/dataset" ]; then
-    echo "[2/5] Setting up dataset..."
-
-    if [ -f "/content/drive/MyDrive/chana_dataset.zip" ]; then
-        echo "Extracting from Google Drive..."
-        unzip -q /content/drive/MyDrive/chana_dataset.zip -d /content/
-    elif [ -n "$DATASET_URL" ]; then
-        echo "Downloading from URL..."
-        gdown "$DATASET_URL" -O /content/dataset.zip
-        unzip -q /content/dataset.zip -d /content/
-    else
-        echo "ERROR: No dataset found!"
-        echo "Please either:"
-        echo "  1. Upload chana_dataset.zip to Google Drive root"
-        echo "  2. Provide dataset URL: bash train_colab.sh yolov8 'your_gdrive_url'"
-        exit 1
-    fi
+# Download dataset from Google Drive
+echo "[2/6] Downloading dataset from Google Drive..."
+if [ ! -f "/content/dataset.zip" ]; then
+    gdown "https://drive.google.com/uc?id=$GDRIVE_ID" -O /content/dataset.zip
 else
-    echo "[2/5] Dataset already exists."
+    echo "Dataset zip already exists, skipping download."
 fi
 
-# Verify dataset
-echo "[3/5] Verifying dataset..."
-TRAIN_COUNT=$(find /content/dataset/train/images -name "*.jpg" | wc -l)
-VALID_COUNT=$(find /content/dataset/valid/images -name "*.jpg" | wc -l)
-TEST_COUNT=$(find /content/dataset/test/images -name "*.jpg" | wc -l)
+# Extract dataset
+echo "[3/6] Extracting dataset..."
+if [ ! -d "/content/dataset" ]; then
+    unzip -q /content/dataset.zip -d /content/
+
+    # Find the extracted folder and rename to dataset
+    EXTRACTED=$(ls -d /content/*/ | grep -v sample_data | head -1)
+    if [ "$EXTRACTED" != "/content/dataset/" ] && [ -n "$EXTRACTED" ]; then
+        mv "$EXTRACTED" /content/dataset 2>/dev/null || true
+    fi
+else
+    echo "Dataset already extracted."
+fi
+
+# Check dataset structure and fix if needed
+echo "[4/6] Verifying dataset structure..."
+if [ -d "/content/dataset/train/images" ]; then
+    echo "Standard structure detected."
+elif [ -d "/content/dataset/images/train" ]; then
+    echo "Alternative structure detected, reorganizing..."
+    mkdir -p /content/dataset_fixed/{train,valid,test}/{images,labels}
+    mv /content/dataset/images/train/* /content/dataset_fixed/train/images/ 2>/dev/null || true
+    mv /content/dataset/images/valid/* /content/dataset_fixed/valid/images/ 2>/dev/null || true
+    mv /content/dataset/images/test/* /content/dataset_fixed/test/images/ 2>/dev/null || true
+    mv /content/dataset/labels/train/* /content/dataset_fixed/train/labels/ 2>/dev/null || true
+    mv /content/dataset/labels/valid/* /content/dataset_fixed/valid/labels/ 2>/dev/null || true
+    mv /content/dataset/labels/test/* /content/dataset_fixed/test/labels/ 2>/dev/null || true
+    rm -rf /content/dataset
+    mv /content/dataset_fixed /content/dataset
+else
+    echo "Checking for flat structure..."
+    ls -la /content/dataset/
+fi
+
+# Count images
+TRAIN_COUNT=$(find /content/dataset/train/images -type f \( -name "*.jpg" -o -name "*.png" -o -name "*.jpeg" \) 2>/dev/null | wc -l)
+VALID_COUNT=$(find /content/dataset/valid/images -type f \( -name "*.jpg" -o -name "*.png" -o -name "*.jpeg" \) 2>/dev/null | wc -l)
+TEST_COUNT=$(find /content/dataset/test/images -type f \( -name "*.jpg" -o -name "*.png" -o -name "*.jpeg" \) 2>/dev/null | wc -l)
 echo "Train: $TRAIN_COUNT, Valid: $VALID_COUNT, Test: $TEST_COUNT"
 
+if [ "$TRAIN_COUNT" -eq 0 ]; then
+    echo "ERROR: No training images found!"
+    echo "Dataset structure:"
+    find /content/dataset -type d | head -20
+    exit 1
+fi
+
 # Create data.yaml
-echo "[4/5] Creating config..."
+echo "[5/6] Creating config..."
 cat > /content/data.yaml << EOF
 path: /content/dataset
 train: train/images
@@ -64,8 +92,13 @@ names:
   8: Good Matar
 EOF
 
+# Mount Google Drive for saving models
+echo "Mounting Google Drive..."
+python3 -c "from google.colab import drive; drive.mount('/content/drive')" 2>/dev/null || echo "Drive already mounted or not in Colab"
+mkdir -p /content/drive/MyDrive/chana_models
+
 # Train
-echo "[5/5] Starting training..."
+echo "[6/6] Starting training..."
 if [ "$MODEL" == "yolov8" ]; then
     python3 << 'PYTHON_SCRIPT'
 from ultralytics import YOLO
@@ -131,7 +164,7 @@ PYTHON_SCRIPT
 
 else
     echo "Unknown model: $MODEL"
-    echo "Usage: bash train_colab.sh [yolov8|rfdetr]"
+    echo "Usage: bash train_colab.sh <gdrive_id> [yolov8|rfdetr]"
     exit 1
 fi
 
