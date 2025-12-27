@@ -120,10 +120,11 @@ from ultralytics import YOLO
 model = YOLO('yolov8n.pt')
 results = model.train(
     data='/content/data.yaml',
-    epochs=100,
-    batch=32,
-    imgsz=640,
+    epochs=50,           # Reduced - early stopping will kick in anyway
+    batch=64,            # Increased for faster training on T4
+    imgsz=512,           # Slightly smaller for speed, still good quality
     optimizer='AdamW',
+    lr0=0.002,           # Slightly higher LR for faster convergence
     degrees=180,
     flipud=0.5,
     fliplr=0.5,
@@ -131,13 +132,14 @@ results = model.train(
     hsv_v=0.4,
     mosaic=1.0,
     mixup=0.1,
-    close_mosaic=10,
+    close_mosaic=5,      # Disable mosaic earlier
     device=0,
-    workers=4,
+    workers=8,           # More workers for faster data loading
     amp=True,
+    cache='ram',         # Cache images in RAM for faster loading
     project='/content/drive/MyDrive/chana_models',
     name='yolov8n_chana',
-    patience=20,
+    patience=10,         # Stop earlier if no improvement
     plots=True,
 )
 
