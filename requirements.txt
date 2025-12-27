@@ -1,0 +1,17 @@
+# Core
+torch>=1.12.0
+torchvision>=0.13.0
+numpy<2.0
+
+# YOLOv8
+ultralytics>=8.0.0
+
+# RF-DETR
+rfdetr>=1.0.0
+
+# Utils
+opencv-python>=4.5.0
+pycocotools
+matplotlib
+tqdm
+pyyaml

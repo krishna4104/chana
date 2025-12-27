@@ -1,0 +1,15 @@
+path: /content/dataset
+train: train/images
+val: valid/images
+test: test/images
+nc: 9
+names:
+  0: Bad Black Channa
+  1: Bad Kabuli Chana
+  2: Good Black Channa
+  3: Good Kabuli Chana
+  4: foreign material
+  5: Bad Soya
+  6: Good Soya
+  7: Bad Matar
+  8: Good Matar

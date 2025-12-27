@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Dataset (too large for git)
+dataset/
+dataset_coco/
+*.zip
+
+# Weights (upload separately)
+weights/
+*.pt
+*.onnx
+*.engine
+
+# Logs
+runs/
+wandb/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
