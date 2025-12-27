@@ -39,10 +39,15 @@ echo "[3/6] Extracting dataset..."
 if [ ! -d "/content/dataset" ]; then
     unzip -q /content/dataset.zip -d /content/
 
-    # Find the extracted folder and rename to dataset
-    EXTRACTED=$(ls -d /content/*/ | grep -v sample_data | head -1)
-    if [ "$EXTRACTED" != "/content/dataset/" ] && [ -n "$EXTRACTED" ]; then
-        mv "$EXTRACTED" /content/dataset 2>/dev/null || true
+    # Handle different extracted folder names
+    if [ -d "/content/filtered_dataset" ]; then
+        mv /content/filtered_dataset /content/dataset
+    elif [ ! -d "/content/dataset" ]; then
+        # Find any extracted folder that's not sample_data
+        EXTRACTED=$(ls -d /content/*/ 2>/dev/null | grep -vE 'sample_data|chana|drive' | head -1)
+        if [ -n "$EXTRACTED" ] && [ "$EXTRACTED" != "/content/dataset/" ]; then
+            mv "$EXTRACTED" /content/dataset 2>/dev/null || true
+        fi
     fi
 else
     echo "Dataset already extracted."
